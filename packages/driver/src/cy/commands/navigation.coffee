@@ -545,7 +545,7 @@ module.exports = (Commands, Cypress, cy, state, config) ->
 
           knownCommandCausedInstability = true
 
-          $utils.iframeSrc($autIframe, url)
+          $autIframe.prop("window").location.href = url;
 
       onLoad = ({runOnLoadCallback}) ->
         ## reset window on load

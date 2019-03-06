@@ -41,7 +41,7 @@ returnedFalse = (result) ->
   result is false
 
 getContentWindow = ($autIframe) ->
-  $autIframe.prop("contentWindow")
+  $autIframe.prop('window')
 
 setWindowDocumentProps = (contentWindow, state) ->
   state("window",   contentWindow)
@@ -105,11 +105,11 @@ create = (specWindow, Cypress, Cookies, state, config, log) ->
 
   contentWindowListeners = (contentWindow) ->
     $Listeners.bindTo(contentWindow, {
-      onError: ->
-        ## use a function callback here instead of direct
-        ## reference so our users can override this function
-        ## if need be
-        cy.onUncaughtException.apply(cy, arguments)
+      # onError: ->
+      #   ## use a function callback here instead of direct
+      #   ## reference so our users can override this function
+      #   ## if need be
+      #   cy.onUncaughtException.apply(cy, arguments)
       onSubmit: (e) ->
         Cypress.action("app:form:submitted", e)
       onBeforeUnload: (e) ->
@@ -678,38 +678,55 @@ create = (specWindow, Cypress, Cookies, state, config, log) ->
       ## when we find ourselves in a cross origin situation, then our
       ## proxy has not injected Cypress.action('window:before:load')
       ## so Cypress.onBeforeAppWindowLoad() was never called
-      $autIframe.on "load", ->
+      d = $autIframe.prop('document')
+      lastUrl = $autIframe.prop('window').location.href
+      readyState = ''
+      setInterval () ->
+        currentUrl = $autIframe.prop('window').location.href
+        currentState = $autIframe.prop('document').readyState
+        if currentState isnt readyState
+          # console.warn('changing state from', currentState, 'to', readyState)
+          readyState = currentState
+          # console.error(readyState)
+          if readyState is 'complete' || readyState is 'interactive'
+            try
+              setWindowDocumentProps(getContentWindow($autIframe), state)
+
+              ## we may need to update the url now
+              urlNavigationEvent("load")
+
+              ## we normally DONT need to reapply contentWindow listeners
+              ## because they would have been automatically applied during
+              ## onBeforeAppWindowLoad, but in the case where we visited
+              ## about:blank in a visit, we do need these
+              contentWindowListeners(getContentWindow($autIframe))
+
+              Cypress.action("app:window:load", state("window"))
+
+              ## we are now stable again which is purposefully
+              ## the last event we call here, to give our event
+              ## listeners time to be invoked prior to moving on
+              stability.isStable(true, "load")
+            catch err
+              ## we failed setting the remote window props
+              ## which means we're in a cross domain failure
+              ## check first to see if you have a callback function
+              ## defined and let the page load change the error
+              if onpl = state("onPageLoadErr")
+                err = onpl(err)
+
+              ## and now reject with it
+              if r = state("reject")
+                r(err)
+        else if currentUrl isnt lastUrl
+          readyState = ''
+          lastUrl = currentUrl
+      , 50
+      # $autIframe.on "load", ->
         ## if setting these props failed
         ## then we know we're in a cross origin failure
-        try
-          setWindowDocumentProps(getContentWindow($autIframe), state)
-
-          ## we may need to update the url now
-          urlNavigationEvent("load")
-
-          ## we normally DONT need to reapply contentWindow listeners
-          ## because they would have been automatically applied during
-          ## onBeforeAppWindowLoad, but in the case where we visited
-          ## about:blank in a visit, we do need these
-          contentWindowListeners(getContentWindow($autIframe))
-
-          Cypress.action("app:window:load", state("window"))
-
-          ## we are now stable again which is purposefully
-          ## the last event we call here, to give our event
-          ## listeners time to be invoked prior to moving on
-          stability.isStable(true, "load")
-        catch err
-          ## we failed setting the remote window props
-          ## which means we're in a cross domain failure
-          ## check first to see if you have a callback function
-          ## defined and let the page load change the error
-          if onpl = state("onPageLoadErr")
-            err = onpl(err)
-
-          ## and now reject with it
-          if r = state("reject")
-            r(err)
+        # console.error('loaded')
+        
 
     stop: ->
       ## don't do anything if we've already stopped

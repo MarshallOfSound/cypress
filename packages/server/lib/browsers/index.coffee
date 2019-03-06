@@ -36,6 +36,8 @@ getBrowserLauncherByFamily = (family) ->
       require("./electron")
     when "chrome"
       require("./chrome")
+    when "chromium-based"
+      require("./app")
 
 isValidPathToBrowser = (str) ->
   path.basename(str) isnt str

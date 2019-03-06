@@ -96,4 +96,32 @@ module.exports = {
         majorVersion: version.split(".")[0]
         info: "Electron is the default browser that comes with Cypress. This is the browser that runs in headless mode. Selecting this browser is useful when debugging. The version number indicates the underlying Chromium version that Electron uses."
       })
+
+      customApp = process.env.CUSTOM_APP
+      if customApp isnt undefined
+        if process.platform is 'darwin'
+          plist = fs.readFileSync(path.resolve(customApp, '..', '..', 'Info.plist'), 'utf8')
+          readPlistKey = (key) ->
+            reg = new RegExp(key + '<\/key>(?:.|\n)+?<string>(.+?)</')
+            return plist.match(reg)[1]
+          version = readPlistKey('CFBundleShortVersionString')
+          browsers.concat({
+            name: 'custom-app'
+            family: "chromium-based"
+            displayName: readPlistKey('CFBundleDisplayName')
+            version: version
+            path: customApp
+            majorVersion: version
+            info: "Custom chromium based app that supported the Cypress launcher"
+          })
+        else
+          browsers.concat({
+            name: 'custom-app'
+            family: "chromium-based"
+            displayName: "Custom Chromium App"
+            version: "0.0.0"
+            path: customApp
+            majorVersion: "99"
+            info: "Custom chromium based app that supported the Cypress launcher"
+          })
 }

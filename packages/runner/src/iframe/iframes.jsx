@@ -122,7 +122,7 @@ export default class Iframes extends Component {
       const specSrc = `/${this.props.config.namespace}/iframes/${specPath}`
 
       const $container = $(this.refs.container).empty()
-      const $autIframe = this.autIframe.create(this.props.config).appendTo($container)
+      const $autIframe = this.autIframe.create(this.props.config)
 
       this.autIframe.showBlankContents()
 

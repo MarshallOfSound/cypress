@@ -8,6 +8,8 @@ import logger from '../lib/logger'
 import visitFailure from './visit-failure'
 import selectorPlaygroundModel from '../selector-playground/selector-playground-model'
 
+let w
+
 export default class AutIframe {
   constructor (config) {
     this.config = config
@@ -15,12 +17,17 @@ export default class AutIframe {
   }
 
   create () {
-    this.$iframe = $('<iframe>', {
-      id: `Your App: '${this.config.projectName}'`,
-      class: 'aut-iframe',
-    })
+    if (!w) {
+      w = window.open(`http://${location.host}`, '_blank')
 
-    return this.$iframe
+      window.addEventListener('beforeunload', () => {
+        w.close()
+      })
+    }
+
+    this.$window = w
+
+    return $(this.$window.window)
   }
 
   showBlankContents () {
@@ -36,15 +43,15 @@ export default class AutIframe {
   }
 
   _contents () {
-    return this.$iframe && this.$iframe.contents()
+    return this.$window && $(this.$window.document).contents()
   }
 
   _window () {
-    return this.$iframe.prop('contentWindow')
+    return this.$window.window
   }
 
   _document () {
-    return this.$iframe.prop('contentDocument')
+    return this.$window.document
   }
 
   _body () {
@@ -186,7 +193,7 @@ export default class AutIframe {
       // then we need to additional scroll the window
       // by these offsets
       if (scrollBy) {
-        this.$iframe.prop('contentWindow').scrollBy(scrollBy.x, scrollBy.y)
+        this._window.scrollBy(scrollBy.x, scrollBy.y)
       }
     }
 

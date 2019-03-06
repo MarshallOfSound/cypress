@@ -8,6 +8,9 @@ PATH = "CHANGE_ME_PATH"
 
 httpRe = /^http/
 
+isElectron = () ->
+  chrome.cookies == undefined
+
 firstOrNull = (cookies) ->
   ## normalize into null when empty array
   cookies[0] ? null
@@ -19,9 +22,10 @@ connect = (host, path, io) ->
   return if not io
 
   listenToCookieChanges = once ->
-    chrome.cookies.onChanged.addListener (info) ->
-      if info.cause isnt "overwrite"
-        client.emit("automation:push:request", "change:cookie", info)
+    if not isElectron()
+      chrome.cookies.onChanged.addListener (info) ->
+        if info.cause isnt "overwrite"
+          client.emit("automation:push:request", "change:cookie", info)
 
   fail = (id, err) ->
     client.emit("automation:response", id, {
@@ -99,7 +103,10 @@ automation = {
   getAll: (filter = {}) ->
     get = ->
       new Promise (resolve) ->
-        chrome.cookies.getAll(filter, resolve)
+        if isElectron()
+          resolve([])
+        else
+          chrome.cookies.getAll(filter, resolve)
 
     get()
 
@@ -117,16 +124,19 @@ automation = {
       new Promise (resolve, reject) =>
         ## only get the url if its not already set
         props.url ?= @getUrl(props)
-        chrome.cookies.set props, (details) ->
-          switch
-            when details
-              resolve(details)
-            when err = chrome.runtime.lastError
-              reject(err)
-            else
-              ## the cookie callback could be null such as the
-              ## case when expirationDate is before now
-              resolve(null)
+        if isElectron()
+          resolve(null)
+        else
+          chrome.cookies.set props, (details) ->
+            switch
+              when details
+                resolve(details)
+              when err = chrome.runtime.lastError
+                reject(err)
+              else
+                ## the cookie callback could be null such as the
+                ## case when expirationDate is before now
+                resolve(null)
 
     set()
     .then(fn)
@@ -153,6 +163,8 @@ automation = {
 
   query: (data) ->
     code = "var s; (s = document.getElementById('#{data.element}')) && s.textContent"
+    if isElectron()
+      code = "return (() => { var s; s = document.getElementById('#{data.element}'); console.info(s); return s.textContent })()"
 
     query = ->
       new Promise (resolve) ->
